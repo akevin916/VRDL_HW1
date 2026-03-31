@@ -1,89 +1,67 @@
-# HW1 Classification Notes
+# NYCU Computer Vision 2026 HW1
 
-## Project Goal
-- Fine-grained image classification task (100 classes).
-- Backbone must be ResNet-based.
-- Model size must be under 100M parameters.
+- Student ID: 314553039
+- Name: 蔡博崴
 
-## Current Model Setup
-- Backbone: `SE-ResNet50` (ResNet50-based, with SE blocks).
-- Pretrain: ImageNet pretrained weights from `ResNet50_Weights.DEFAULT`.
-- Transfer strategy: load ResNet50 pretrained weights into SE-ResNet50 with `strict=False`.
-- Classifier head: `num_classes=100`.
+## Introduction
 
-## Current Training Decisions
-- Keep `strict=False` because architecture is modified from ResNet50 to SE-ResNet50.
-- Do not implement full resume checkpoint structure for now.
-- Use experiment naming with augmentation and image size tags.
-- Keep `README` and `requirements.txt` cleanup as low priority.
+This project tackles a 100-class fine-grained image classification task under the constraint that the model must remain ResNet-based and under 100M parameters. The final system is built on SE-ResNet50 with ImageNet pretraining, and the training pipeline includes data augmentation, weighted sampling, and optional test-time augmentation.
 
-## Data/Augmentation Status
-- Two augmentation modes are available:
-	- `AA`: AutoAugment (ImageNet policy)
-	- `manual`: custom augmentation pipeline
-- Manual pipeline currently includes:
-	- `RandomResizedCrop(scale=(0.85, 1.0))`
-	- `RandomHorizontalFlip`
-	- `RandomRotation(15)`
-	- `RandomAdjustSharpness`
-	- `ColorJitter`
-	- `RandomErasing` (after `ToTensor`)
+## Environment Setup
 
-## Observed Error Patterns
-1. Fine-grained confusion: difficult to separate close sub-species.
-2. Background distraction: foreground bee classified as flower class.
-3. High intra-class variance: same class appears as stem/fruit/flower with very different visual forms.
-4. Low resolution: some samples are too blurry for reliable recognition.
-
-## Key Findings
-- Manual augmentation direction is reasonable for this task.
-- Compared with AutoAugment, manual policy is easier to control for fine-grained features.
-- `224` and `256` gave similar results in practice.
-	- `256` was slightly better on val.
-	- test performance was almost the same.
-
-## Priority Next Steps (No major architecture change first)
-1. Keep backbone as `SE-ResNet50` and optimize training strategy first.
-2. Run a clean baseline without mixup/cutmix, then compare.
-3. Reduce `ColorJitter` hue strength (suggest `hue=0.03~0.05`) for fine-grained color cues.
-4. Add class-imbalance strategy:
-	 - `WeightedRandomSampler` or class-weighted CE (start with one).
-5. Add TTA at inference (flip / multi-crop logits averaging).
-6. If still saturated, then try a larger ResNet-based variant (still <100M), e.g. SE-ResNet101.
-
-## Why No Immediate Architecture Switch
-- Current model already satisfies constraints (ResNet-based, under 100M).
-- Existing error modes are more likely data/optimization issues than backbone capacity limit.
-- Faster gains are expected from sampling, augmentation tuning, and inference stabilization.
-
-## Useful Commands
-
-Train with manual augmentation:
+Install the required Python packages before training or inference.
 
 ```bash
-python train.py --lr 1e-4 --image_size 256 --transform_type manual
+pip install -r requirements.txt
 ```
 
-Train with AutoAugment:
+## Usage
+
+### Training
+
+The default final model is SE-ResNet50. The command below trains with AutoAugment at 256 resolution.
 
 ```bash
-python train.py --lr 1e-4 --image_size 256 --transform_type AA
+python train.py --model_type se --image_size 256 --transform_type AA --lr 1e-4
 ```
 
-Inference by experiment name:
+If you want to enable weighted sampling for class imbalance:
+
+```bash
+python train.py --model_type se --image_size 256 --transform_type AA --lr 1e-4 --use_weighted_sampler --sampler_power 1.0
+```
+
+If you want to test the GeM + Dropout variant:
+
+```bash
+python train.py --model_type fg_gem --dropout 0.5 --gem_p 3.0 --image_size 256 --transform_type AA --lr 1e-4
+```
+
+### Inference
+
+Run inference with the selected experiment name. The checkpoint is loaded from `checkpoints/<EXP_NAME>/best_model.pth`.
 
 ```bash
 python inference.py --exp_name "<EXP_NAME>" --img_size 256 --output_csv prediction.csv
 ```
 
+To enable TTA during inference:
+
+```bash
+python inference.py --exp_name "<EXP_NAME>" --img_size 256 --use_tta --tta_scales "1.0,1.1" --output_csv prediction_tta.csv
+```
+
+## Performance Snapshot
+
+- Final model: SE-ResNet50 with AutoAugment, CutMix, label smoothing, and cosine annealing.
+- Public leaderboard accuracy: 93.0%
+- Local validation accuracy: 89.2%
+
+Insert a screenshot of the leaderboard here if required by the homework format.
+
 ## Notes
-- Current `--checkpoint_path` behavior is initialization from checkpoint weights, not full training-state resume.
-- If full resume is needed later, save/load `model + optimizer + scheduler + epoch + best_val_acc` together.
 
-
-## 指令
-# 原本 SE
-python train.py --model_type se --image_size 256 --transform_type manual --lr 1e-4
-
-# 新的 GeM + Dropout
-python train.py --model_type fg_gem --dropout 0.5 --gem_p 3.0 --image_size 256 --transform_type AA --lr 1e-4
+- `strict=False` is used when loading pretrained ResNet50 weights into SE-ResNet50 because the architecture is modified.
+- `WeightedRandomSampler` is used to reduce class-imbalance errors.
+- TTA is available in inference through multi-scale and horizontal-flip averaging.
+- `checkpoint_path` currently loads model weights only and does not restore full optimizer or scheduler state.

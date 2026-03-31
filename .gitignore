@@ -26,5 +26,3 @@ prediction.csv
 val_analysis.csv
 confusion_matrix.csv
 confusion_matrix_normalized.csv
-*.png
-

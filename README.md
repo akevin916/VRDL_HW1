@@ -52,12 +52,7 @@ python inference.py --exp_name "<EXP_NAME>" --img_size 256 --use_tta --tta_scale
 ```
 
 ## Performance Snapshot
-
-- Final model: SE-ResNet50 with AutoAugment, CutMix, label smoothing, and cosine annealing.
-- Public leaderboard accuracy: 93.0%
-- Local validation accuracy: 89.2%
-
-Insert a screenshot of the leaderboard here if required by the homework format.
+![alt text](image.png)
 
 ## Notes
 
